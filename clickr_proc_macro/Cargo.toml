@@ -1,0 +1,19 @@
+[package]
+name = "clickr_proc_macro"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+quote = "1.0.6"
+darling = "0.13.0"
+proc-macro2 = "1.0"
+clap = "2.33"
+
+[dependencies.syn]
+version = "1.0.27"
+features = ["full"]
