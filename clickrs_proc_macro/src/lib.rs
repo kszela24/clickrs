@@ -2,14 +2,9 @@ extern crate proc_macro;
 
 use darling::{FromMeta, ToTokens};
 use proc_macro::TokenStream;
-use proc_macro::*;
 use quote::{format_ident, quote};
 use syn::__private::TokenStream2;
-use syn::spanned::Spanned;
-use syn::{
-    parse_macro_input, parse_str, AttributeArgs, Block, FnArg, Ident, ItemFn, Pat, PathArguments, ReturnType,
-    Type,
-};
+use syn::{parse_macro_input, AttributeArgs, FnArg, Ident, ItemFn, Pat, PatIdent, PatType};
 
 #[proc_macro_attribute]
 pub fn argument(
@@ -33,64 +28,30 @@ pub fn argument(
     input_stream_string.parse().expect("Generated invalid tokens")
 }
 
-#[derive(FromMeta)]
+#[derive(Default, FromMeta)]
+#[darling(default)]
 struct ComandMacroArgs {
-    #[darling(default)]
     name: String,
-
-    #[darling(default)]
     bin_name: Option<String>,
-
-    #[darling(default)]
     version: Option<String>,
-
-    #[darling(default)]
     long_version: Option<String>,
-
-    #[darling(default)]
     version_short: Option<String>,
-
-    #[darling(default)]
     version_message: Option<String>,
-
-    #[darling(default)]
     author: Option<String>,
-
-    #[darling(default)]
     about: Option<String>,
-
-    #[darling(default)]
     long_about: Option<String>,
-
-    #[darling(default)]
     before_help: Option<String>,
-
-    #[darling(default)]
     help: Option<String>,
-
-    #[darling(default)]
     after_help: Option<String>,
-
-    #[darling(default)]
     help_short: Option<String>,
-
-    #[darling(default)]
     help_message: Option<String>,
-
-    #[darling(default)]
     usage: Option<String>,
-
-    #[darling(default)]
     template: Option<String>,
-
-    #[darling(default)]
     set_term_width: Option<usize>,
-
-    #[darling(default)]
     max_term_width: Option<usize>,
 }
 
-fn get_command_block(args: ComandMacroArgs) -> TokenStream2 {
+fn build_command_block(args: ComandMacroArgs) -> TokenStream2 {
     let command_name = args.name;
 
     let string_args_vec = vec![
@@ -146,7 +107,7 @@ fn get_command_block(args: ComandMacroArgs) -> TokenStream2 {
         command_block = quote! {
             #command_block
             #command_builder_block
-        }
+        };
     }
 
     command_block
@@ -157,7 +118,6 @@ pub fn command(
     args_stream: TokenStream,
     input_stream: TokenStream,
 ) -> TokenStream {
-    let cloned_input_stream = input_stream.clone();
     let attr_args = parse_macro_input!(args_stream as AttributeArgs);
     let args = match ComandMacroArgs::from_list(&attr_args) {
         Ok(v) => v,
@@ -166,74 +126,65 @@ pub fn command(
         }
     };
 
-    let input = parse_macro_input!(input_stream as ItemFn);
-
     // pull out the parts of the input
+    let input = parse_macro_input!(input_stream as ItemFn);
+    let inputs = input.clone().sig.inputs;
     let _attributes = input.attrs;
     let visibility = input.vis;
-    let signature = input.sig;
     let body = input.block;
+    let mut signature = input.sig;
+    println!("{}", &signature.to_token_stream());
+    signature.ident = format_ident!("__inner_main");
 
-    // pull out the parts of the function signature
-    let fn_ident = signature.ident.clone();
-    let inputs = signature.inputs.clone();
-    let output = signature.output.clone();
-    let asyncness = signature.asyncness;
+    let mut command_block = build_command_block(args);
+    let mut matches_block = quote! {};
+    let mut inner_main_args = quote! {};
 
-    // pull out the names and types of the function inputs
-    let input_tys = inputs
-        .iter()
-        .map(|input| match input {
-            FnArg::Receiver(_) => panic!("methods (functions taking 'self') are not supported"),
-            FnArg::Typed(pat_type) => pat_type.ty.clone(),
-        })
-        .collect::<Vec<Box<Type>>>();
+    for main_arg in inputs.iter() {
+        let main_arg_pat = if let FnArg::Typed(pat_type) = main_arg {
+            Some(pat_type)
+        } else {
+            None
+        }
+        .unwrap();
 
-    let input_names = inputs
-        .iter()
-        .map(|input| match input {
-            FnArg::Receiver(_) => panic!("methods (functions taking 'self') are not supported"),
-            FnArg::Typed(pat_type) => pat_type.pat.clone(),
-        })
-        .collect::<Vec<Box<Pat>>>();
+        let arg_name_ident = if let Pat::Ident(pat_ident) = &*main_arg_pat.pat {
+            Some(pat_ident)
+        } else {
+            None
+        }
+        .unwrap()
+        .ident
+        .clone();
 
-    // pull out the output type
-    let output_ty = match &output {
-        ReturnType::Default => quote! {()},
-        ReturnType::Type(_, ty) => quote! {#ty},
-    };
+        let formatted_arg_name = format!("{}", &arg_name_ident);
+        println!("{}", formatted_arg_name);
+        command_block = quote! {
+            #command_block
+            .arg(Arg::with_name(#formatted_arg_name))
+        };
 
-    let output_span = output_ty.span();
-    let output_ts = TokenStream::from(output_ty.clone());
-    let output_parts = output_ts
-        .clone()
-        .into_iter()
-        .filter_map(|tt| match tt {
-            proc_macro::TokenTree::Ident(ident) => Some(ident.to_string()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let output_string = output_parts.join("::");
-    let output_type_display = output_ts.to_string().replace(" ", "");
+        matches_block = quote! {
+            #matches_block
+            let #arg_name_ident = String::from(matches.value_of(#formatted_arg_name).unwrap());
+        };
 
-    let command_block = get_command_block(args);
+        inner_main_args = quote! {
+            #inner_main_args
+            #arg_name_ident,
+        }
+    }
+
     let main_block = quote! {
+        #visibility #signature #body
+
         #visibility fn main() {
             #command_block.get_matches();
+            #matches_block
 
-            println!("blep");
+            __inner_main(#inner_main_args);
         }
     };
-    println!("{:?}", command_block.to_string());
-
-    println!("_attributes: {:?}", _attributes);
-    println!("visibility: {:?}", visibility);
-    println!("signature: {:?}", signature);
-    println!("body: {:?}", body);
-    println!("fn_ident: {:?}", fn_ident);
-    println!("inputs: {:?}", inputs);
-    println!("output: {:?}", output);
-    println!("asyncness: {:?}", asyncness);
 
     println!("{}", main_block);
     main_block.into()

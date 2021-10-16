@@ -44,15 +44,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "clickr"
+name = "clickrs"
 version = "0.1.0"
 dependencies = [
  "clap",
- "clickr_proc_macro",
+ "clickrs_proc_macro",
 ]
 
 [[package]]
-name = "clickr_proc_macro"
+name = "clickrs_proc_macro"
 version = "0.1.0"
 dependencies = [
  "clap",
