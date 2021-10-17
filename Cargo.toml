@@ -1,6 +1,6 @@
 [package]
 name = "clickrs"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2018"
 authors = ["Kyle Szela <kszela24@gmail.com>", "others"]
 description = "Simplified CLIs for Rust via procedural macros (Python's click, for Rust)."
