@@ -8,7 +8,7 @@ Find it on [Docs.rs](https://docs.rs/clickrs).
 
 ## Example
 
-Add `clickrs` to your dependencies of your `Cargo.toml`:
+Re-implementing the example from `structopt`, add `clickrs` to your dependencies of your `Cargo.toml`:
 ```toml
 [dependencies]
 clickrs = "0.1"
