@@ -1,6 +1,6 @@
 [package]
 name = "clickrs_proc_macro"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2018"
 authors = ["Kyle Szela <kszela24@gmail.com>"]
 description = "Simplified CLIs for Rust via procedural macros (Python's click, for Rust). The procedural macro crate."

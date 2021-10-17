@@ -1,6 +1,6 @@
 [package]
 name = "clickrs"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2018"
 authors = ["Kyle Szela <kszela24@gmail.com>", "others"]
 description = "Simplified CLIs for Rust via procedural macros (Python's click, for Rust)."
@@ -13,7 +13,8 @@ readme = "README.md"
 
 [dependencies]
 structopt = "0.3"
+structopt-derive = "0.4"
 
 [dependencies.clickrs_proc_macro]
-version = "0.1.3"
+version = "0.1.4"
 path = "clickrs_proc_macro"

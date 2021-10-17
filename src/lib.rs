@@ -89,3 +89,4 @@ pub use clickrs_proc_macro::command;
 
 /// Re-exports
 pub use structopt;
+pub use structopt_derive;
