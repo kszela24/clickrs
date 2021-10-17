@@ -2,16 +2,23 @@
 name = "clickrs_proc_macro"
 version = "0.1.0"
 edition = "2018"
+authors = ["Kyle Szela <kszela24@gmail.com>"]
+description = "Simplified CLIs for Rust via procedural macros (Python's click, for Rust). The procedural macro crate."
+documentation = "https://docs.rs/clickrs_proc_macro"
+repository = "https://github.com/kszela24/clickrs"
+keywords = ["clap", "cli", "structopt"]
+categories = ["command-line-interface"]
+license = "Apache-2.0 OR MIT"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-quote = "1.0.6"
-darling = "0.13.0"
+quote = "1.0"
+darling = "0.13"
 proc-macro2 = "1.0"
 structopt = "0.3"
 
 [dependencies.syn]
-version = "1.0.27"
+version = "1.0"
 features = ["full"]

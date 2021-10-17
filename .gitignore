@@ -1,2 +1,4 @@
-/target
+target
 Cargo.lock
+clickrs_proc_macro/Cargo.lock
+clickrs_proc_macro/target
