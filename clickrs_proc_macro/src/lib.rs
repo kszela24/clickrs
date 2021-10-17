@@ -11,11 +11,13 @@ fn build_structopt_block(
     input_itemfn: ItemFn,
     argument_macro_attributes: HashMap<String, TokenStream2>,
 ) -> TokenStream2 {
+    // Procedurally generates the structopt struct.
     let inputs = input_itemfn.clone().sig.inputs;
 
     let mut members_block = quote! {};
 
     for main_arg in inputs.iter() {
+        // Find all the original arguments to `main` and get them as idents.
         let main_arg_pat = if let FnArg::Typed(pat_type) = main_arg {
             Some(pat_type)
         } else {
@@ -34,6 +36,8 @@ fn build_structopt_block(
 
         let formatted_arg_name = format!("{}", &arg_name_ident);
 
+        // Use the formatted ident with the hash map to find the rest of the arguments to the
+        //  structopt call for the struct field.
         let mut structopt_member_block = quote! {};
         if argument_macro_attributes.contains_key(&formatted_arg_name) {
             let macro_args = argument_macro_attributes.get(&formatted_arg_name).unwrap();
@@ -48,6 +52,8 @@ fn build_structopt_block(
         }
     }
 
+    // Define the full tokenstream for the StructOpt struct which includes all the fields we've
+    //  collected from above.
     let structopt_block = quote! {
         use structopt::StructOpt;
 
@@ -62,6 +68,11 @@ fn build_structopt_block(
 }
 
 fn build_inner_main_args(input_itemfn: ItemFn) -> TokenStream2 {
+    // Generates the tokenstream to pass the arguments to the `__inner_main` function.  Basically
+    //  since we'll be procedurally generating the structopt struct, then we need to pass the CLI
+    //  arguments to `__inner_main` like:
+    //
+    //  __inner_main(opts.arg1, opts.arg2)
     let mut inner_main_args = quote! {};
     let inputs = input_itemfn.clone().sig.inputs;
 
@@ -90,6 +101,12 @@ fn build_inner_main_args(input_itemfn: ItemFn) -> TokenStream2 {
 fn collect_argument_macro_attributes(
     attributes: Vec<Attribute>
 ) -> (HashMap<String, TokenStream2>, Vec<Attribute>) {
+    // Basically what we're doing here is taking the arguments passed to the `argument` dummy
+    //  macro, using the first argument as the key to the hash map, and then storing the rest
+    //  of the arguments as the values.  So:
+    //  #[argument("arg1", short, long)]
+    //
+    //  becomes part of the hash map like {"arg1": `short, long`}
     let mut argument_macro_attributes: HashMap<String, TokenStream2> = HashMap::new();
     let mut remaining_attributes: Vec<Attribute> = vec![];
 
@@ -100,8 +117,9 @@ fn collect_argument_macro_attributes(
         if macro_name == "argument".to_string() {
             let attribute_token_stream = attribute.tokens.to_token_stream();
 
-            for x in attribute_token_stream.into_iter() {
-                let group = if let TokenTree2::Group(group) = x {
+            for macro_arguments in attribute_token_stream.into_iter() {
+                // Get the group of arguments to the `argument` macro.
+                let group = if let TokenTree2::Group(group) = macro_arguments {
                     Some(group)
                 } else {
                     None
@@ -109,10 +127,17 @@ fn collect_argument_macro_attributes(
                 .unwrap();
 
                 let mut group_iter = group.stream().into_iter();
+
+                // Get the first argument to use as the hash map key, and eat the comma punctuation.
                 let first_arg = group_iter.next().unwrap();
                 let _first_arg_punc = group_iter.next();
+
+                // Collect the rest of the tokens as we'll need to pass them to structopt fields
+                //  when we procedurally generate the structopt struct.
                 let rest: TokenStream2 = group_iter.collect();
 
+                // `first_arg_formatted` is the name of the argument to `main` that the user is
+                //  adding additional options to.
                 let first_arg_formatted = format!("{}", first_arg)
                     .strip_prefix("\"")
                     .unwrap()
