@@ -1,144 +1,19 @@
 extern crate proc_macro;
 
-use darling::{FromMeta, ToTokens};
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
-use syn::__private::TokenStream2;
-use syn::{parse_macro_input, AttributeArgs, FnArg, Ident, ItemFn, Pat, PatIdent, PatType};
+use proc_macro2::{TokenStream as TokenStream2, TokenTree as TokenTree2};
+use quote::{format_ident, quote, ToTokens};
+use std::collections::HashMap;
+use syn::{parse_macro_input, Attribute, FnArg, ItemFn, Pat};
 
-#[proc_macro_attribute]
-pub fn argument(
-    args_stream: TokenStream,
-    input_stream: TokenStream,
-) -> TokenStream {
-    let mut input_stream_string = input_stream.to_string();
-    let input = parse_macro_input!(input_stream as ItemFn);
+fn build_structopt_block(
+    command_args: TokenStream2,
+    input_itemfn: ItemFn,
+    argument_macro_attributes: HashMap<String, TokenStream2>,
+) -> TokenStream2 {
+    let inputs = input_itemfn.clone().sig.inputs;
 
-    println!("{}", args_stream.to_string());
-    println!("{:?}", parse_macro_input!(args_stream as AttributeArgs));
-    println!("{:?}", input_stream_string);
-    println!("{:?}", input.attrs);
-
-    if input.attrs.is_empty() {
-        println!("{:?}", input.block.stmts);
-        println!("{:?}", input.sig);
-        input_stream_string = "fn main() { println!(\"hi\") }".to_string();
-    }
-
-    input_stream_string.parse().expect("Generated invalid tokens")
-}
-
-#[derive(Default, FromMeta)]
-#[darling(default)]
-struct ComandMacroArgs {
-    name: String,
-    bin_name: Option<String>,
-    version: Option<String>,
-    long_version: Option<String>,
-    version_short: Option<String>,
-    version_message: Option<String>,
-    author: Option<String>,
-    about: Option<String>,
-    long_about: Option<String>,
-    before_help: Option<String>,
-    help: Option<String>,
-    after_help: Option<String>,
-    help_short: Option<String>,
-    help_message: Option<String>,
-    usage: Option<String>,
-    template: Option<String>,
-    set_term_width: Option<usize>,
-    max_term_width: Option<usize>,
-}
-
-fn build_command_block(args: ComandMacroArgs) -> TokenStream2 {
-    let command_name = args.name;
-
-    let string_args_vec = vec![
-        ("version", args.version),
-        ("author", args.author),
-        ("about", args.about),
-        ("bin_name", args.bin_name),
-        ("long_version", args.long_version),
-        ("version_short", args.version_short),
-        ("version_message", args.version_message),
-        ("long_about", args.long_about),
-        ("before_help", args.before_help),
-        ("help", args.help),
-        ("after_help", args.after_help),
-        ("help_short", args.help_short),
-        ("help_message", args.help_message),
-        ("usage", args.usage),
-        ("template", args.template),
-    ];
-
-    let usize_args_vec = vec![
-        ("set_term_width", args.set_term_width),
-        ("max_term_width", args.max_term_width),
-    ];
-
-    let mut command_block = quote! {
-        use clap::{App, Arg};
-        let matches = App::new(#command_name)
-    };
-
-    for (var_name, arg) in string_args_vec {
-        let varname = format_ident!("{}", var_name);
-        let command_builder_block = if let Some(val) = arg {
-            quote! { .#varname(#val) }
-        } else {
-            quote! {}
-        };
-
-        command_block = quote! {
-            #command_block
-            #command_builder_block
-        }
-    }
-
-    for (var_name, arg) in usize_args_vec {
-        let varname = format_ident!("{}", var_name);
-        let command_builder_block = if let Some(val) = arg {
-            quote! { .#varname(#val) }
-        } else {
-            quote! {}
-        };
-
-        command_block = quote! {
-            #command_block
-            #command_builder_block
-        };
-    }
-
-    command_block
-}
-
-#[proc_macro_attribute]
-pub fn command(
-    args_stream: TokenStream,
-    input_stream: TokenStream,
-) -> TokenStream {
-    let attr_args = parse_macro_input!(args_stream as AttributeArgs);
-    let args = match ComandMacroArgs::from_list(&attr_args) {
-        Ok(v) => v,
-        Err(e) => {
-            return TokenStream::from(e.write_errors());
-        }
-    };
-
-    // pull out the parts of the input
-    let input = parse_macro_input!(input_stream as ItemFn);
-    let inputs = input.clone().sig.inputs;
-    let _attributes = input.attrs;
-    let visibility = input.vis;
-    let body = input.block;
-    let mut signature = input.sig;
-    println!("{}", &signature.to_token_stream());
-    signature.ident = format_ident!("__inner_main");
-
-    let mut command_block = build_command_block(args);
-    let mut matches_block = quote! {};
-    let mut inner_main_args = quote! {};
+    let mut members_block = quote! {};
 
     for main_arg in inputs.iter() {
         let main_arg_pat = if let FnArg::Typed(pat_type) = main_arg {
@@ -158,34 +33,155 @@ pub fn command(
         .clone();
 
         let formatted_arg_name = format!("{}", &arg_name_ident);
-        println!("{}", formatted_arg_name);
-        command_block = quote! {
-            #command_block
-            .arg(Arg::with_name(#formatted_arg_name))
-        };
 
-        matches_block = quote! {
-            #matches_block
-            let #arg_name_ident = String::from(matches.value_of(#formatted_arg_name).unwrap());
-        };
+        let mut structopt_member_block = quote! {};
+        if argument_macro_attributes.contains_key(&formatted_arg_name) {
+            let macro_args = argument_macro_attributes.get(&formatted_arg_name).unwrap();
+            structopt_member_block = quote! { #macro_args }
+        }
 
-        inner_main_args = quote! {
-            #inner_main_args
-            #arg_name_ident,
+        members_block = quote! {
+            #members_block
+
+            #[structopt(#structopt_member_block)]
+            #main_arg,
         }
     }
 
+    let structopt_block = quote! {
+        use structopt::StructOpt;
+
+        #[derive(Debug, StructOpt)]
+        #[structopt(#command_args)]
+        struct __CommandStruct {
+            #members_block
+        }
+    };
+
+    structopt_block
+}
+
+fn build_inner_main_args(input_itemfn: ItemFn) -> TokenStream2 {
+    let mut inner_main_args = quote! {};
+    let inputs = input_itemfn.clone().sig.inputs;
+
+    for main_arg in inputs.iter() {
+        let main_arg_pat = if let FnArg::Typed(pat_type) = main_arg {
+            Some(pat_type)
+        } else {
+            None
+        }
+        .unwrap();
+
+        let arg_name_ident = if let Pat::Ident(pat_ident) = &*main_arg_pat.pat {
+            Some(pat_ident)
+        } else {
+            None
+        }
+        .unwrap();
+
+        inner_main_args = quote! {
+            #inner_main_args opts.#arg_name_ident,
+        };
+    }
+    inner_main_args
+}
+
+fn collect_argument_macro_attributes(
+    attributes: Vec<Attribute>
+) -> (HashMap<String, TokenStream2>, Vec<Attribute>) {
+    let mut argument_macro_attributes: HashMap<String, TokenStream2> = HashMap::new();
+    let mut remaining_attributes: Vec<Attribute> = vec![];
+
+    for attribute in attributes.clone().drain(..) {
+        let path_ident = &attribute.path.segments.first().unwrap().ident;
+        let macro_name = format!("{}", path_ident);
+
+        if macro_name == "argument".to_string() {
+            let attribute_token_stream = attribute.tokens.to_token_stream();
+
+            for x in attribute_token_stream.into_iter() {
+                let group = if let TokenTree2::Group(group) = x {
+                    Some(group)
+                } else {
+                    None
+                }
+                .unwrap();
+
+                let mut group_iter = group.stream().into_iter();
+                let first_arg = group_iter.next().unwrap();
+                let _first_arg_punc = group_iter.next();
+                let rest: TokenStream2 = group_iter.collect();
+
+                let first_arg_formatted = format!("{}", first_arg)
+                    .strip_prefix("\"")
+                    .unwrap()
+                    .to_string()
+                    .strip_suffix("\"")
+                    .unwrap()
+                    .to_string();
+
+                argument_macro_attributes.insert(first_arg_formatted, rest);
+            }
+        } else {
+            remaining_attributes.push(attribute);
+        }
+    }
+
+    (argument_macro_attributes, remaining_attributes)
+}
+
+/// ## Note
+/// All arguments available to the struct/enum level invocation of structopt are available to pass to `command` (https://docs.rs/structopt/0.3.23/structopt/#magical-methods).
+#[proc_macro_attribute]
+pub fn command(
+    args_stream: TokenStream,
+    input_stream: TokenStream,
+) -> TokenStream {
+    let args_stream = TokenStream2::from(args_stream);
+    let input_itemfn = parse_macro_input!(input_stream as ItemFn);
+
+    // Pick up all the additional macros that were applied to main.  These should
+    //  all be "argument" proc macros.
+    let attributes = input_itemfn.clone().attrs;
+    let collect_result = collect_argument_macro_attributes(attributes);
+    let argument_macro_attributes = collect_result.0;
+
+    // TODO: Handle remaining attributes.  Imagine we'd want to figure out how to make
+    //  sure things like the tokio async main macro still functions correctly and is
+    //  applied to the correct function.
+    let _remaining_attributes = collect_result.1;
+
+    let structopt_block = build_structopt_block(
+        args_stream.clone(),
+        input_itemfn.clone(),
+        argument_macro_attributes,
+    );
+    let inner_main_args = build_inner_main_args(input_itemfn.clone());
+
+    // Pull out the parts of the input.
+    let visibility = input_itemfn.vis;
+    let body = input_itemfn.block;
+
+    // Rename the original "main" function and define it as __inner_main so
+    //  we can call it with the CLI arguments, and override main to have
+    //  no arguments.
+    let mut signature = input_itemfn.sig;
+    signature.ident = format_ident!("__inner_main");
+
+    // TODO: Add return type to main from original main.
+    // TODO: Keep asyncness.
     let main_block = quote! {
+        #structopt_block
+
         #visibility #signature #body
 
         #visibility fn main() {
-            #command_block.get_matches();
-            #matches_block
+            let opts = __CommandStruct::from_args();
 
             __inner_main(#inner_main_args);
         }
     };
 
-    println!("{}", main_block);
     main_block.into()
 }

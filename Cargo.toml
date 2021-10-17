@@ -2,9 +2,17 @@
 name = "clickrs"
 version = "0.1.0"
 edition = "2018"
+authors = ["Kyle Szela <kszela24@gmail.com>", "others"]
+description = "Simplified CLIs for Rust via procedural macros (Python's click, for Rust)."
+documentation = "https://docs.rs/clickrs"
+repository = "https://github.com/kszela24/clickrs"
+keywords = ["clap", "cli", "structopt"]
+categories = ["command-line-interface"]
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
 
 [dependencies]
-clap = "2.33"
+structopt = "0.3"
 
 [dependencies.clickrs_proc_macro]
 version = "0.1.0"
