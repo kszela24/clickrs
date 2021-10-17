@@ -55,7 +55,7 @@ fn build_structopt_block(
     // Define the full tokenstream for the StructOpt struct which includes all the fields we've
     //  collected from above.
     let structopt_block = quote! {
-        use structopt::StructOpt;
+        use clickrs::structopt::StructOpt;
 
         #[derive(Debug, StructOpt)]
         #[structopt(#command_args)]
