@@ -50,7 +50,7 @@ error: The following required arguments were not provided:
     --output <output>
 
 USAGE:
-    clickrs --output <output> --speed <speed>
+    basic --output <output> --speed <speed>
 
 For more information try --help
 ```
@@ -60,7 +60,7 @@ $ ./basic --help
 basic 0.1.0
 
 USAGE:
-    clickrs [FLAGS] [OPTIONS] --output <output> [--] [FILE]...
+    basic [FLAGS] [OPTIONS] --output <output> [--] [FILE]...
 
 FLAGS:
     -d, --debug
