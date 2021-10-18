@@ -2,6 +2,8 @@
 
 > Simplified CLI creation via procedural macros.
 
+**For the time being you must also have structopt as a dependency to use `clickrs`.**
+
 This crate is largely inspired by the `click` Python package which allows for defining command line
 interfaces very simply through the use of decorators (https://github.com/pallets/click#a-simple-example).
 In `clickrs`, we export a precedural macro to mimic this functionality of click: `command`.
