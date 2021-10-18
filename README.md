@@ -12,6 +12,7 @@ Re-implementing the example from `structopt`, add `clickrs` to your dependencies
 ```toml
 [dependencies]
 clickrs = "0.1"
+structopt = "0.3"
 ```
 
 And then, in your rust file:
